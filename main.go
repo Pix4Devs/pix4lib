@@ -14,5 +14,8 @@ func main() {
 	}, "1.1.1.1", 443); if err != nil {
 		log.Fatal(err)
 	}
-	conn.Close()
+	defer conn.Close()
+
+	// do whatever you want with this connection
+	// it is now tunneled through your ip -> proxy -> target
 }
