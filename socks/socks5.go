@@ -79,7 +79,8 @@ func NewSocks5Client(timeout time.Duration) *SOCKS5_Client{
 	}
 }
 
-// Does all the low level stuff and returns an active TCP connection from your ip -> proxy -> target server
+// Does all the low level stuff and returns an active TCP connection from your ip -> proxy -> target server.
+// Any I/O you perform from this connection is directly relayed as your ip -> proxy -> target server
 func (c *SOCKS5_Client) Connect(
 	proxyCtx ProxyCtx,
 	authenticate bool, 
