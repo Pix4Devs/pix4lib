@@ -97,7 +97,7 @@ func (c *SOCKS5_Client) Connect(
 	proxy_port int, 
 	authenticate bool, 
 	auth AuthFunc, target Target,
-	 target_port int,
+	target_port int,
 ) (*net.TCPConn, error) {
 	user, pass := auth(); if authenticate && (user == ""  || pass == ""){
 		return nil, errors.New("User/Pass cannot be NILL if authenticate is set to true")
