@@ -93,9 +93,9 @@ func NewSocks5Client(timeout time.Duration) *SOCKS5_Client{
 }
 
 // All aorund wrapper
-func (c *SOCKS5_Client) Connect(proxy_host string, proxy_port int, authenticate bool, auth AuthFunc, target Target, target_port int) error {
+func (c *SOCKS5_Client) Connect(proxy_host string, proxy_port int, authenticate bool, auth AuthFunc, target Target, target_port int) (*net.TCPConn, error) {
 	user, pass := auth(); if authenticate && (user == ""  || pass == ""){
-		return errors.New("User/Pass cannot be NILL if authenticate is set to true")
+		return nil, errors.New("User/Pass cannot be NILL if authenticate is set to true")
 	}
 
 	m := SOCKS5_METHOD_NO_AUTH
@@ -105,29 +105,31 @@ func (c *SOCKS5_Client) Connect(proxy_host string, proxy_port int, authenticate 
 
 	conn, _, err := c.connectToProxy(proxy_host, proxy_port, METHOD(m))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if authenticate {
 		if err := conn.establishAuth(user,pass); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	atyp := []byte{}
 	switch(true){
 		case isIPv4(string(target)):
+			ipv4 := net.ParseIP(string(target))
 			atyp = append(atyp, SOCKS5_ATYP_IPV4)
-			atyp = append(atyp, []byte(target)...)
+			atyp = append(atyp, ipv4.To4()...)
 		case isIPv6(string(target)):
+			ipv6 := net.ParseIP(string(target))
 			atyp = append(atyp, SOCKS5_ATYP_IPV6)
-			atyp = append(atyp, []byte(target)...)
+			atyp = append(atyp, ipv6.To16()...)
 		case isDomain(string(target)):
 			atyp = append(atyp, SOCKS5_ATYP_DOMAIN)
 			atyp = append(atyp, byte(len(target)))
 			atyp = append(atyp, []byte(target)...)
 		default:
-			return errors.New("Given target is none of ipv4, ipv6 or domain name")
+			return nil, errors.New("Given target is none of ipv4, ipv6 or domain name")
 	}
 
 	header := []byte{
@@ -135,8 +137,6 @@ func (c *SOCKS5_Client) Connect(proxy_host string, proxy_port int, authenticate 
 		SOCKS5_CMD_CONNECT,
 		SOCKS5_RESERVED,
 	}
-
-	fmt.Println(atyp)
 	header = append(header, atyp...)
 
 	port := make([]byte,2)
@@ -144,18 +144,19 @@ func (c *SOCKS5_Client) Connect(proxy_host string, proxy_port int, authenticate 
 
 	header = append(header, port...)
 	
-
 	if _, err := conn.Write(header); err != nil {
-		return err
+		return nil, err
 	}
 
 	rep := make([]byte, 5)
 	if _, err := conn.Read(rep); err != nil {
-		return err
+		return nil, err
 	}
 
-	fmt.Println(rep)
-	return nil
+	if rep[1] != 0x00 {
+		return nil, errors.New(fmt.Sprintf("Proxy server declined connect request with code: %s", SOCKS5_REPS[rep[1]]))
+	}
+	return conn.TCPConn, nil
 }
 
 func (c *SOCKS5_Client) connectToProxy(proxy_host string, proxy_port int, method METHOD) (*SOCKS5_Conn, ServerResponse, error) {
@@ -216,11 +217,10 @@ func(c *SOCKS5_Conn) establishAuth(user, pass string) error {
 	}
 
 	if rep[1] != 0x00 {
-		return errors.New("Failed establishing auth")
+		return errors.New("Failed establishing auth, invalid credentials")
 	}
 	return nil
 }
-// etc etc komt nog
 
 func isIPv4(input string) bool {
 	regex := regexp.MustCompile(`^(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3})$`)
