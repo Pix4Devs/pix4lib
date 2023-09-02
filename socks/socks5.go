@@ -9,7 +9,7 @@ import (
 )
 
 /*
-SOCKS5 IMPLENTATION
+SOCKS5 implementation
 
 Implements only:
  - Auth
@@ -21,8 +21,6 @@ const (
 	SOCKS5_Version        byte = 0x05 // SOCKS5 VERSION
 	SOCKS5_METHOD_NO_AUTH byte = 0x00 // NO AUTHENTICATION REQUIRED
 	SOCKS5_METHOD_AUTH    byte = 0x02 // USERNAME/PASSWORD
-	SOCKS5_CMD_CONNECT    byte = 0x01 // CMD CONNECT
-	SOCKS5_RESERVED       byte = 0x00 // RESERVED FIELD
 
 	// FOR CMD CONNECT
 	SOCKS5_ATYP_IPV4   byte = 0x01 // IPV4
@@ -64,19 +62,6 @@ type (
 	SOCKS5_Conn struct {
 		*net.TCPConn
 	}
-
-	// CONNECT METHOD, see: SOCKS5_AUTH_METHODS
-	METHOD byte
-
-	// Auth func, should return user and pass strings
-	// nil for no auth
-	AuthFunc func() (string, string)
-
-	// Proxy server response
-	ServerResponse []byte
-
-	// Can be IPV6, IPV4 or domain name
-	Target string
 )
 
 func(c *SOCKS5_Conn) CloseConnection() error {
@@ -93,13 +78,12 @@ func NewSocks5Client(timeout time.Duration) *SOCKS5_Client{
 
 // All aorund wrapper
 func (c *SOCKS5_Client) Connect(
-	proxy_host string, 
-	proxy_port int, 
+	proxyCtx ProxyCtx,
 	authenticate bool, 
-	auth AuthFunc, target Target,
-	target_port int,
+	auth Auth, 
+	targetCtx TargetCtx,
 ) (*net.TCPConn, error) {
-	user, pass := auth(); if authenticate && (user == ""  || pass == ""){
+	if authenticate && (auth.User == ""  || auth.Pass == ""){
 		return nil, errors.New("User/Pass cannot be NILL if authenticate is set to true")
 	}
 
@@ -108,44 +92,44 @@ func (c *SOCKS5_Client) Connect(
 		m = SOCKS5_METHOD_AUTH
 	}
 
-	conn, _, err := c.connectToProxy(proxy_host, proxy_port, METHOD(m))
+	conn, _, err := c.connectToProxy(proxyCtx.IP, proxyCtx.Port, SOCKS5_METHOD(m))
 	if err != nil {
 		return nil, err
 	}
 
 	if authenticate {
-		if err := conn.establishAuth(user,pass); err != nil {
+		if err := conn.establishAuth(auth.User, auth.Pass); err != nil {
 			return nil, err
 		}
 	}
 
 	atyp := []byte{}
 	switch(true){
-		case isIPv4(string(target)):
-			ipv4 := net.ParseIP(string(target))
+		case isIPv4(string(targetCtx.IP)):
+			ipv4 := net.ParseIP(string(targetCtx.IP))
 			atyp = append(atyp, SOCKS5_ATYP_IPV4)
 			atyp = append(atyp, ipv4.To4()...)
-		case isIPv6(string(target)):
-			ipv6 := net.ParseIP(string(target))
+		case isIPv6(string(targetCtx.IP)):
+			ipv6 := net.ParseIP(string(targetCtx.IP))
 			atyp = append(atyp, SOCKS5_ATYP_IPV6)
 			atyp = append(atyp, ipv6.To16()...)
-		case isDomain(string(target)):
+		case isDomain(string(targetCtx.IP)):
 			atyp = append(atyp, SOCKS5_ATYP_DOMAIN)
-			atyp = append(atyp, byte(len(target)))
-			atyp = append(atyp, []byte(target)...)
+			atyp = append(atyp, byte(len(targetCtx.IP)))
+			atyp = append(atyp, []byte(targetCtx.IP)...)
 		default:
 			return nil, errors.New("Given target is none of ipv4, ipv6 or domain name")
 	}
 
 	header := []byte{
 		SOCKS5_Version,
-		SOCKS5_CMD_CONNECT,
-		SOCKS5_RESERVED,
+		CMD_CONNECT,
+		RESERVED,
 	}
 	header = append(header, atyp...)
 
 	port := make([]byte,2)
-	binary.BigEndian.PutUint16(port, uint16(target_port))
+	binary.BigEndian.PutUint16(port, uint16(targetCtx.Port))
 
 	header = append(header, port...)
 	
@@ -164,7 +148,7 @@ func (c *SOCKS5_Client) Connect(
 	return conn.TCPConn, nil
 }
 
-func (c *SOCKS5_Client) connectToProxy(proxy_host string, proxy_port int, method METHOD) (*SOCKS5_Conn, ServerResponse, error) {
+func (c *SOCKS5_Client) connectToProxy(proxy_host string, proxy_port int, method SOCKS5_METHOD) (*SOCKS5_Conn, ServerResponse, error) {
 	conn, err := net.Dial("tcp",fmt.Sprintf("%s:%d", proxy_host, proxy_port)); if err != nil {
 		return nil, nil, err
 	}
