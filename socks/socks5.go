@@ -191,7 +191,7 @@ func (c *SOCKS5_Client) connectToProxy(proxy_host string, proxy_port int, method
 		return nil, nil, err
 	}
 
-	if rep[0] != SOCKS5_Version || rep[1] != SOCKS5_METHOD_AUTH {
+	if rep[0] != SOCKS5_Version || rep[1] != byte(method) {
 		return nil, nil, errors.New(
 			fmt.Sprintf("Invalid SOCKS version or METHOD selection reply: [ %v: %v ]", 
 			rep[0], 
