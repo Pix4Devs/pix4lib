@@ -44,6 +44,7 @@ var (
 		0xFF: "unassigned",
 	}
 
+	// AUTH METHODS
 	SOCKS5_AUTH_METHODS = map[byte]string{
 		0x00: "NO AUTHENTICATION REQUIRED",
 		0x01: "GSSAPI",
@@ -55,10 +56,12 @@ var (
 )
 
 type (
+	// Client
 	SOCKS5_Client struct {
 		Timeout time.Duration // READ & WRITE TIMEOUT
 	}
 	
+	// SOCKS5 Connection
 	SOCKS5_Conn struct {
 		*net.TCPConn
 	}
@@ -76,7 +79,7 @@ func NewSocks5Client(timeout time.Duration) *SOCKS5_Client{
 	}
 }
 
-// All aorund wrapper
+// Does all the low level stuff and returns an active TCP connection from your ip -> proxy -> target server
 func (c *SOCKS5_Client) Connect(
 	proxyCtx ProxyCtx,
 	authenticate bool, 
