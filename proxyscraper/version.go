@@ -1,4 +1,4 @@
-package pix4lib
+package proxyscraper
 
 const (
 	VERSION = "1.0.0"
