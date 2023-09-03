@@ -91,10 +91,9 @@ func (c *SOCKS4_Client) Connect(proxy ProxyCtx, target TargetCtx) (*net.TCPConn,
 
 	rep := make([]byte, 2)
 	if _, err := conn.Read(rep); err != nil {
-		fmt.Println("hier")
 		return nil, err
 	}
-
+	
 	if rep[1] != 0x5A {
 		return nil, errors.New(fmt.Sprintf("Request to target from proxy failed with code: %s", SOCKS4_REPS[rep[1]]))
 	}

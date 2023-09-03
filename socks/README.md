@@ -42,7 +42,7 @@ func main() {
 	}
 	target := socks.TargetCtx{
 		IP: "google.com",
-		Port: 80,
+		Port: 443,
 	}
 
 	// Supports authenticate and no auth, see docs for info
@@ -56,6 +56,24 @@ func main() {
 
 	// do whatever you want with this connection
 	// it is now tunneled through your ip -> proxy -> target
+	if _, err := conn.Write([]byte("GET / HTTP/1.1\r\nConnection: keep-alive\r\n")); err != nil {
+		log.Fatal(err)
+	}
+
+	var buffer []byte
+	for {
+		chunk := make([]byte, 1042)
+		n, err := conn.Read(chunk)
+		if  err == io.EOF {
+			break
+		}
+
+		if n != 0 {
+			buffer = chunk[:n]
+		}
+	}
+
+	fmt.Println(string(buffer))
 }
 ```
 
@@ -65,20 +83,23 @@ func main() {
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"time"
+
 	"github.com/Pix4Devs/pix4lib/socks"
 )
 
 func main() {
 	proxy := socks.ProxyCtx{
-		IP: "184.170.245.148",
-		Port: 4145,
+		IP: "192.111.130.5",
+		Port: 17002,
 	}
     // if IP is an domain the IP will be automatically extracted
 	target := socks.TargetCtx{
 		IP: "google.com",
-		Port: 80,
+		Port: 443,
 	}
 
 	conn, err := socks.NewSocks4Client(time.Second*5).Connect(proxy,target); if err != nil {
@@ -88,5 +109,23 @@ func main() {
 
 	// do whatever you want with this connection
 	// it is now tunneled through your ip -> proxy -> target
+	if _, err := conn.Write([]byte("GET / HTTP/1.1\r\nConnection: keep-alive\r\n")); err != nil {
+		log.Fatal(err)
+	}
+
+	var buffer []byte
+	for {
+		chunk := make([]byte, 1042)
+		n, err := conn.Read(chunk)
+		if  err == io.EOF {
+			break
+		}
+
+		if n != 0 {
+			buffer = chunk[:n]
+		}
+	}
+
+	fmt.Println(string(buffer))
 }
 ```
